@@ -1,8 +1,160 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    function validCurrency(c) {
+      return c in ['UGX', 'KES', 'USD'];
+    }
+
+    // User profile
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.currency is string
+        && validCurrency(request.resource.data.currency)
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.currency is string
+        && validCurrency(request.resource.data.currency);
+
+      allow delete: if isOwner(uid);
+    }
+
+    // Allocation plans
+    match /users/{uid}/allocationPlans/{planId} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.revision is int
+        && request.resource.data.revision >= 1
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.revision is int
+        && request.resource.data.revision > resource.data.revision
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if isOwner(uid) && resource.data.isActive == false;
+    }
+
+    // Income records
+    match /users/{uid}/incomes/{incomeId} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.amount is number
+        && request.resource.data.currency is string
+        && validCurrency(request.resource.data.currency)
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.amount is number
+        && request.resource.data.currency is string
+        && validCurrency(request.resource.data.currency);
+
+      allow delete: if isOwner(uid);
+    }
+
+    // Expense records
+    match /users/{uid}/expenses/{expenseId} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.amount is number
+        && request.resource.data.currency is string
+        && validCurrency(request.resource.data.currency)
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.amount is number
+        && request.resource.data.currency is string
+        && validCurrency(request.resource.data.currency);
+
+      allow delete: if isOwner(uid);
+    }
+
+    // Savings goals
+    match /users/{uid}/savingsGoals/{goalId} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.targetAmount is number
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isOwner(uid);
+    }
+
+    // Savings contributions
+    match /users/{uid}/savingsContributions/{contributionId} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.amount is number
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isOwner(uid);
+    }
+
+    // Investments
+    match /users/{uid}/investments/{investmentId} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.amount is number
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isOwner(uid);
+    }
+
+    // Investment valuations
+    match /users/{uid}/investmentValuations/{valuationId} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.estimatedValue is number
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isOwner(uid);
+    }
+
+    // Deny all other collection paths by default.
+    // This prevents arbitrary subcollections from being created by clients.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
